@@ -1,10 +1,10 @@
 package com.mecofarid.newsapi
 
+import com.mecofarid.newsapi.model.response.DefaultResponse
 import com.mecofarid.newsapi.model.response.SourcesResponse
 import com.mecofarid.oranjnews.data.model.NewsResponse
-import okhttp3.HttpUrl
-import okhttp3.Request
-import okhttp3.Response
+import okhttp3.*
+import java.io.IOException
 import java.lang.Exception
 import java.lang.IllegalArgumentException
 
@@ -19,6 +19,7 @@ private const val API_KEY_HEADER = "X-Api-Key"
 
 class NewsApi{
 
+    // SYNCHRONOUS CALLS START
     fun getSources(queryParams: Map<String, Any?>, callback: NewsApiResponseCallback<SourcesResponse>){
         execute(
             request = buildHttpRequest(
@@ -52,6 +53,40 @@ class NewsApi{
         )
     }
 
+    // ASYNCHRONOUS CALLS
+    fun getSourcesAsync(queryParams: Map<String, Any?>, callback: NewsApiResponseCallback<SourcesResponse>){
+        executeAsync(
+            request = buildHttpRequest(
+                path = SOURCES_ENDPOINT,
+                apiToken = NewsApiManager.getApiToken(),
+                queryParams = queryParams
+            ),
+            callback = callback
+        )
+    }
+
+    fun getEverythingAsync(queryParams: Map<String, Any?>, callback: NewsApiResponseCallback<NewsResponse>){
+        executeAsync(
+            request = buildHttpRequest(
+                path = EVERYTHING_ENDPOINT,
+                apiToken = NewsApiManager.getApiToken(),
+                queryParams = queryParams
+            ),
+            callback = callback
+        )
+    }
+
+    fun getHeadlinesAsync(queryParams: Map<String, Any>, callback: NewsApiResponseCallback<NewsResponse>){
+        executeAsync(
+            request = buildHttpRequest(
+                path = TOP_HEADLINES_ENDPOINT,
+                apiToken = NewsApiManager.getApiToken(),
+                queryParams = queryParams
+            ),
+            callback = callback
+        )
+    }
+
     private inline fun <reified T> execute(request: Request, callback: NewsApiResponseCallback<T>) {
         try {
             with(NewsApiManager.getOkHttpClient().newCall(request).execute()) {
@@ -68,11 +103,47 @@ class NewsApi{
 
     }
 
+    private inline fun <reified T> executeAsync(request: Request, callback: NewsApiResponseCallback<T>) {
+        try {
+            NewsApiManager.getOkHttpClient().newCall(request).enqueue(object : Callback{
+                override fun onResponse(call: Call, response: Response) {
+                    callback.onSuccess(
+                        deserializeResponse(
+                            response = response,
+                            responseDeserializationType = T::class.java
+                        )
+                    )
+                }
+
+                override fun onFailure(call: Call, e: IOException) {
+                    throw e
+                }
+
+            })
+        } catch (e: Exception) {
+            callback.onFailure(e)
+        }
+
+    }
+
     private fun <T> deserializeResponse(response: Response, responseDeserializationType: Class<T>): T {
-        return NewsApiManager.getGson().fromJson(
+        val deserializationResponse = NewsApiManager.getGson().fromJson(
             response.body?.string(),
             responseDeserializationType
         )
+
+        if (response.isSuccessful.not()){
+            with(deserializationResponse as DefaultResponse){
+                throw NewsApiException(
+                    status = this.status,
+                    code = this.code,
+                    message = this.message,
+                    cause = null
+                )
+            }
+        }
+
+        return deserializationResponse
     }
 
     private fun buildHttpRequest(path: String, apiToken: String?, queryParams: Map<String, Any?>): Request{
