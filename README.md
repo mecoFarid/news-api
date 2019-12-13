@@ -74,6 +74,9 @@ thread {
     )
 }        
 ```
+If you want to add `from` or `to` dates to query parameters you can use this library's `Date.asNewsApiDateFormat()` function. It will convert the given `Date` to a String that's resolvable by ![newsapi.org](https://newsapi.org). 
+
+Example: `hashMapOf("q" to "bitcoin", "from" to Date().asNewsApiDateFormat())`
 
 
 NOTE: `hashMapOf("q" to "bitcoin")` is query paramter for a given endpoint. You can find available query parameters and values at ![https://newsapi.org/docs/endpoints](https://newsapi.org/docs/endpoints)
