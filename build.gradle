@@ -34,4 +34,7 @@ ext{
     //OkHttp
     okHttpVersion               = '4.2.1'
     loggingInterceptorVersion   = '4.2.1'
+
+    //MockWebServer
+    mockWebServerVersion        = '4.2.1'
 }

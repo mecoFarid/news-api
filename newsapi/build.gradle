@@ -40,4 +40,7 @@ dependencies {
     // OkHttp
     implementation "com.squareup.okhttp3:okhttp:$rootProject.okHttpVersion"
     implementation "com.squareup.okhttp3:logging-interceptor:$rootProject.loggingInterceptorVersion"
+
+    //MockWebServer
+    testImplementation "com.squareup.okhttp3:mockwebserver:$rootProject.mockWebServerVersion"
 }
