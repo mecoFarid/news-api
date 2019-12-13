@@ -1,11 +1,11 @@
 package com.mecofarid.newsapi
 
-import com.mecofarid.newsapi.model.response.DefaultResponse
 import com.mecofarid.newsapi.model.response.SourcesResponse
 import com.mecofarid.oranjnews.data.model.NewsResponse
 import okhttp3.HttpUrl
 import okhttp3.Request
 import okhttp3.Response
+import java.lang.Exception
 import java.lang.IllegalArgumentException
 
 
@@ -17,87 +17,95 @@ private const val EVERYTHING_ENDPOINT = "everything"
 private const val SOURCES_ENDPOINT = "sources"
 private const val API_KEY_HEADER = "X-Api-Key"
 
-private const val EMPTY_OR_NULL_RESPONSE_BODY = "Server returns null or empty response"
-
 class NewsApi{
-    private val mRequestBuilder: Request.Builder
-    private var mHttpUrlBuilder: HttpUrl.Builder
 
-    init {
-        with(NewsApiManager.getApiToken()) {
-
-            validateResolvableApiToken(apiToken = this)
-
-            /**
-             * Token can't be null here. [validateResolvableApiToken] will check for `non-null` api token and will throw exception
-             * if token is `null`
-             */
-            mRequestBuilder = Request.Builder()
-                .addHeader(API_KEY_HEADER, this!!)
-        }
-
-        mHttpUrlBuilder = HttpUrl.Builder()
-            .scheme(SCHEME_NEWS_API)
-            .host(HOST_NEWS_API)
-            .addPathSegment(VERSION_2_NEWS_API)
+    fun getSources(queryParams: Map<String, Any?>, callback: NewsApiResponseCallback<SourcesResponse>){
+        execute(
+            request = buildHttpRequest(
+                path = SOURCES_ENDPOINT,
+                apiToken = NewsApiManager.getApiToken(),
+                queryParams = queryParams
+            ),
+            callback = callback
+        )
     }
 
-    fun getSources(): SourcesResponse{
-        with(mHttpUrlBuilder.addPathSegment(SOURCES_ENDPOINT).build()) {
-            return execute(
-                request = mRequestBuilder.url(this).build(),
-                classOfReturnType = SourcesResponse::class.java
-            )
-        }
+    fun getEverything(queryParams: Map<String, Any?>, callback: NewsApiResponseCallback<NewsResponse>){
+        execute(
+            request = buildHttpRequest(
+                path = EVERYTHING_ENDPOINT,
+                apiToken = NewsApiManager.getApiToken(),
+                queryParams = queryParams
+            ),
+            callback = callback
+        )
     }
 
-    fun getEverything(queryParams: Map<String, Any?>): NewsResponse{
-        for ((key, value) in queryParams){
-            mHttpUrlBuilder.addQueryParameter(key, value.toString())
-        }
-
-        with(mHttpUrlBuilder.addPathSegment(EVERYTHING_ENDPOINT).build()){
-            return execute(
-                request = mRequestBuilder.url(this).build(),
-                classOfReturnType = NewsResponse::class.java
-            )
-        }
+    fun getHeadlines(queryParams: Map<String, Any>, callback: NewsApiResponseCallback<NewsResponse>){
+        execute(
+            request = buildHttpRequest(
+                path = TOP_HEADLINES_ENDPOINT,
+                apiToken = NewsApiManager.getApiToken(),
+                queryParams = queryParams
+            ),
+            callback = callback
+        )
     }
 
-    fun getHeadlines(queryParams: Map<String, Any>): NewsResponse{
-        for ((key, value) in queryParams){
-            mHttpUrlBuilder.addQueryParameter(key, value.toString())
+    private inline fun <reified T> execute(request: Request, callback: NewsApiResponseCallback<T>) {
+        try {
+            with(NewsApiManager.getOkHttpClient().newCall(request).execute()) {
+                callback.onSuccess(
+                    deserializeResponse(
+                        response = this,
+                        responseDeserializationType = T::class.java
+                    )
+                )
+            }
+        } catch (e: Exception) {
+            callback.onFailure(e)
         }
 
-        with(mHttpUrlBuilder.addPathSegment(TOP_HEADLINES_ENDPOINT).build()){
-            return execute(
-                request = mRequestBuilder.url(this).build(),
-                classOfReturnType = NewsResponse::class.java
-            )
-        }
     }
 
-    private fun <T> execute(request: Request, classOfReturnType: Class<T>): T{
-        with(NewsApiManager.getOkHttpClient().newCall(request).execute()) {
-            return processResponse(
-                response = this,
-                classOfReturnType = classOfReturnType
-            )
-        }
+    private fun <T> deserializeResponse(response: Response, responseDeserializationType: Class<T>): T {
+        return NewsApiManager.getGson().fromJson(
+            response.body?.string(),
+            responseDeserializationType
+        )
     }
 
-    private fun <T> processResponse(response: Response, classOfReturnType: Class<T>): T {
-        with(response.body?.string()) {
-            if (this.isNullOrBlank())
-                @Suppress("UNCHECKED_CAST")
-                return  DefaultResponse(message = EMPTY_OR_NULL_RESPONSE_BODY) as T
+    private fun buildHttpRequest(path: String, apiToken: String?, queryParams: Map<String, Any?>): Request{
 
+        validateResolvableApiToken(apiToken)
 
-            return NewsApiManager.getGson().fromJson(
-                this,
-                classOfReturnType
+        /**
+         * Token can't be null here. [validateResolvableApiToken] will check for `non-null` api token and will throw exception
+         * if token is `null`
+         */
+        return Request.Builder().apply {
+            addHeader(API_KEY_HEADER, apiToken!!)
+            url(
+                buildHttpUrl(
+                    path,
+                    queryParams
+                )
             )
-        }
+        }.build()
+    }
+
+    private fun buildHttpUrl(path: String, queryParams: Map<String, Any?>): HttpUrl{
+
+        return HttpUrl.Builder().apply {
+            scheme(SCHEME_NEWS_API)
+            host(HOST_NEWS_API)
+            addPathSegment(VERSION_2_NEWS_API)
+            addPathSegment(path)
+
+            for ((key, value) in queryParams){
+                addQueryParameter(key, value.toString())
+            }
+        }.build()
     }
 
     private fun validateResolvableApiToken(apiToken: String?){
@@ -105,5 +113,11 @@ class NewsApi{
         if (apiToken == null) {
             throw IllegalArgumentException("Api Token can't be null - did you forget to call 'NewsApiManager.setApiToken()'?")
         }
+    }
+
+    interface NewsApiResponseCallback<T>{
+        fun onSuccess(t: T)
+
+        fun onFailure(e: Exception)
     }
 }
