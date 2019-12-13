@@ -30,7 +30,7 @@ dependencies {
 ```
 NewsApiManager.setApiToken(YOUR_API_TOKEN)
 ```
-You only need to do this just once.
+You need to do this just once only.
 
 **Step 2.** Call available endpoints either Synchronously or Asynchronously
 
