@@ -23,10 +23,10 @@ class NewsApiManager {
             mApiToken = apiToken
         }
 
-        fun getApiToken(): String? = mApiToken
+        internal fun getApiToken(): String? = mApiToken
 
-        fun getOkHttpClient(): OkHttpClient = mOkHttpClient
+        internal fun getOkHttpClient(): OkHttpClient = mOkHttpClient
 
-        fun getGson(): Gson = mGson
+        internal fun getGson(): Gson = mGson
     }
 }
